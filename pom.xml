@@ -47,6 +47,7 @@
                                 <resource>
                                     <directory>${basedir}</directory>
                                     <includes>
+                                        <include>json-simple-1.1.1.jar</include>
                                         <include>activemq-all-5.13.5.jar</include>
                                     </includes>
                                 </resource>
@@ -59,6 +60,11 @@
     </build>
 
     <dependencies>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+        </dependency>
         <dependency>
             <groupId>org.apache.activemq</groupId>
             <artifactId>activemq-all</artifactId>

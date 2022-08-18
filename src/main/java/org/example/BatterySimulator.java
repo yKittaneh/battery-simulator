@@ -7,6 +7,10 @@ import java.util.logging.Logger;
 
 public class BatterySimulator {
 
+    // todo: does the battery need to be a simulator plugged in to mosaik?
+    // todo: if no, then it should run on the same docker as the edge node
+    // todo: if yes, does the battery connect to the grid? Or to the node? Or to both? What kind of info does it exchange
+
     private static final Logger logger = Logger.getLogger(BatterySimulator.class.getName());
 
     private static Battery battery;
@@ -22,7 +26,7 @@ public class BatterySimulator {
     public static void main(String[] strings) {
         logger.info("org.example.BatterySimulator started...");
 
-        battery = new Battery(100L, 0);
+        battery = new Battery(50000, 0);
 
         establishActiveMqConnection();
 

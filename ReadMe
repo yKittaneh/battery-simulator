@@ -1,0 +1,2 @@
+to run in server mode (connect in mosaik):
+java -cp ./target/battery-simulator-1.0-SNAPSHOT.jar org.example.separate.BatterySimulator 127.0.0.1:5678 server

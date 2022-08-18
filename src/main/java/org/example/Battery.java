@@ -4,28 +4,28 @@ public class Battery {
 
     // todo: consider adding charging and discharging efficiency
 
-    private long maxCapacity;
-    private long currentLoad;
+    private float maxCapacity;
+    private float currentLoad;
 
     public Battery() {
-        this(100L, 0L);
+        this(50000, 0);
     }
 
-    public Battery(long maxCapacity, long currentLoad) {
+    public Battery(float maxCapacity, float currentLoad) {
         this.maxCapacity = maxCapacity;
         this.currentLoad = currentLoad;
     }
 
-    public long charge(long inputLoad) {
+    public float charge(float inputLoad) {
         this.currentLoad += inputLoad;
         if (this.currentLoad > this.maxCapacity) this.currentLoad = this.maxCapacity;
         return this.currentLoad;
     }
 
-    public long discharge(long outputLoad) {
+    public float discharge(float outputLoad) {
         this.currentLoad -= outputLoad;
         if (this.currentLoad < 0) {
-            long lackingAmount = this.currentLoad;
+            float lackingAmount = this.currentLoad;
             this.currentLoad = 0;
             return outputLoad + lackingAmount;
         }
@@ -36,19 +36,19 @@ public class Battery {
         return this.maxCapacity == this.currentLoad;
     }
 
-    public long getMaxCapacity() {
+    public float getMaxCapacity() {
         return maxCapacity;
     }
 
-    public void setMaxCapacity(long maxCapacity) {
+    public void setMaxCapacity(float maxCapacity) {
         this.maxCapacity = maxCapacity;
     }
 
-    public long getCurrentLoad() {
+    public float getCurrentLoad() {
         return currentLoad;
     }
 
-    public void setCurrentLoad(long currentLoad) {
+    public void setCurrentLoad(float currentLoad) {
         this.currentLoad = currentLoad;
     }
 }
