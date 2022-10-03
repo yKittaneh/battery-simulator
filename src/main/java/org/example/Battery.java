@@ -14,6 +14,9 @@ public class Battery {
     private float maxCapacity;
     private float currentLoad;
 
+    private final double chargingEfficiency;
+    private final double dischargingEfficiency;
+
     public Battery() {
         this(50000, 0);
     }
@@ -21,16 +24,22 @@ public class Battery {
     public Battery(float maxCapacity, float currentLoad) {
         this.maxCapacity = maxCapacity;
         this.currentLoad = currentLoad;
+
+        // defaults for lithium NMC cell
+        this.chargingEfficiency = 0.98;
+        this.dischargingEfficiency = 1.05;
     }
 
     public float charge(float inputLoad) {
-        this.currentLoad += inputLoad;
+        this.currentLoad += (this.chargingEfficiency * inputLoad);
         if (this.currentLoad > this.maxCapacity) this.currentLoad = this.maxCapacity;
+
+        // todo: return currentLoad? why not the charge value
         return this.currentLoad;
     }
 
     public float discharge(float outputLoad) {
-        this.currentLoad -= outputLoad;
+        this.currentLoad -= (this.dischargingEfficiency * outputLoad);
         if (this.currentLoad < 0) {
             float lackingAmount = this.currentLoad;
             this.currentLoad = 0;
