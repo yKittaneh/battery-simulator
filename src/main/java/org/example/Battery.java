@@ -2,7 +2,14 @@ package org.example;
 
 public class Battery {
 
-    // todo: consider adding charging and discharging efficiency
+    /*
+    Battery model that includes efficiency and
+    linear charging/discharging rate limits with respect to battery capacity
+    refer to C/L/C model in following reference for details:
+    "Tractable lithium-ion storage models for optimizing energy systems."
+    */
+
+    // todo: consider adding charging and discharging limits (max amount of charge/discharge the battery can take each time step)
 
     private float maxCapacity;
     private float currentLoad;
