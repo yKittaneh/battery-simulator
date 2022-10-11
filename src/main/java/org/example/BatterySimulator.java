@@ -2,12 +2,10 @@ package org.example;
 
 import de.offis.mosaik.api.SimProcess;
 import de.offis.mosaik.api.Simulator;
-import org.apache.activemq.ActiveMQConnectionFactory;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
 
-import javax.jms.*;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
@@ -25,17 +23,16 @@ public class BatterySimulator extends Simulator {
 
     private static final JSONObject META = (JSONObject) JSONValue.parse(("{"
             + "    'api_version': " + Simulator.API_VERSION + ","
+            + "    'type': 'time-based',"
             + "    'models': {"
             + "        'Battery': {"
             + "            'public': true,"
             + "            'params': ['grid_node_id'],"
-            + "            'attrs': ['grid_node_id', 'current_load', 'grid_power', 'charge', 'discharge', 'test']"
+            + "            'attrs': ['grid_node_id', 'current_load', 'grid_power', 'charge', 'discharge', 'test', 'battery_action']"
             + "            'non-persistent': ['test']"
             + "        }"
             + "    }"
             + "}").replace("'", "\""));
-
-    public static String GRID_NAME;
 
     private static String ENTITY_ID;
 
@@ -44,12 +41,6 @@ public class BatterySimulator extends Simulator {
     private static Long PROFILE_RESOLUTION; //aka step size
 
     private static Battery battery;
-
-    private static Connection activeMqConnection;
-
-    private static Session activeMqSession;
-
-    private static MessageConsumer activeMqConsumer;
 
     private static boolean keepAlive = true;
 
@@ -71,39 +62,9 @@ public class BatterySimulator extends Simulator {
     public static void main(String[] strings) throws Exception {
         logger.info("org.example.BatterySimulator started...");
 
-//        runAsProcess();
         runAsMosaikSimulation(strings);
 
         logger.info("org.example.BatterySimulator finished");
-    }
-
-    private static void runAsProcess() {
-        battery = new Battery(100L, 0);
-
-        establishActiveMqConnection();
-
-        try {
-            while (keepAlive) {
-                Thread.sleep(500);
-
-                TextMessage message = (TextMessage) activeMqConsumer.receive();
-
-                if (message == null)
-                    continue;
-
-                String messageBody = message.getText();
-
-                logger.info("messageBody = " + messageBody);
-
-                handleMessage(messageBody);
-            }
-
-        } catch (InterruptedException | JMSException e) {
-            logger.warning("Error while reading activeMq message");
-            throw new RuntimeException(e);
-        }
-
-        closeActiveMqConnection();
     }
 
     private static void runAsMosaikSimulation(String[] strings) throws Exception {
@@ -117,57 +78,24 @@ public class BatterySimulator extends Simulator {
         }
     }
 
-    private static void handleMessage(String messageBody) {
-        if (messageBody.startsWith("print"))
-            logger.info("received command to print");
-        else if (messageBody.startsWith("charge")) {
-            battery.charge(extractValue(messageBody));
-            logger.info("battery charge = " + battery.getCurrentLoad());
-        } else if (messageBody.startsWith("discharge")) {
-            battery.discharge(extractValue(messageBody));
-            logger.info("battery charge = " + battery.getCurrentLoad());
-        } else if (messageBody.startsWith("shutdown"))
-            keepAlive = false;
-        else
-            logger.warning("Unknown command received = " + messageBody);
-    }
+//    private static void handleMessage(String messageBody) {
+//        if (messageBody.startsWith("print"))
+//            logger.info("received command to print");
+//        else if (messageBody.startsWith("charge")) {
+//            battery.charge(extractValue(messageBody));
+//            logger.info("battery charge = " + battery.getCurrentLoad());
+//        } else if (messageBody.startsWith("discharge")) {
+//            battery.discharge(extractValue(messageBody));
+//            logger.info("battery charge = " + battery.getCurrentLoad());
+//        } else if (messageBody.startsWith("shutdown"))
+//            keepAlive = false;
+//        else
+//            logger.warning("Unknown command received = " + messageBody);
+//    }
 
-    private static long extractValue(String messageBody) {
-        return Long.parseLong(messageBody.split(":")[1]);
-    }
-
-    private static void establishActiveMqConnection() {
-        if (activeMqSession == null) {
-            logger.info("Establishing activeMq connection");
-
-            ActiveMQConnectionFactory connectionFactory = new ActiveMQConnectionFactory("tcp://localhost:61616");
-            try {
-                activeMqConnection = connectionFactory.createConnection();
-                activeMqConnection.start();
-
-                activeMqSession = activeMqConnection.createSession(false, Session.AUTO_ACKNOWLEDGE);
-
-                activeMqConsumer = activeMqSession.createConsumer(activeMqSession.createQueue("TESTFOO"));
-            } catch (JMSException e) {
-                logger.warning("Error while establishing activeMq connection");
-                throw new RuntimeException(e);
-            }
-
-            logger.info("activeMq connection established... Battery is ready!");
-        }
-    }
-
-    private static void closeActiveMqConnection() {
-        logger.info("Closing activeMq session and connection");
-        try {
-            if (activeMqSession != null)
-                activeMqSession.close();
-            if (activeMqConnection != null)
-                activeMqConnection.close();
-        } catch (JMSException e) {
-            throw new RuntimeException(e);
-        }
-    }
+//    private static long extractValue(String messageBody) {
+//        return Long.parseLong(messageBody.split(":")[1]);
+//    }
 
     @Override
     public Map<String, Object> init(String sid, Float timeResolution, Map<String, Object> simParams) {
@@ -176,14 +104,8 @@ public class BatterySimulator extends Simulator {
         if (simParams.containsKey("eid"))
             ENTITY_ID = simParams.get("eid").toString();
 
-//        if (simParams.containsKey("grid_name"))
-//            GRID_NAME = simParams.get("grid_name").toString();
-
         if (simParams.containsKey("profile_resolution"))
             PROFILE_RESOLUTION = (Long) simParams.get("profile_resolution");
-
-        // todo: needs to connect to queue? same queue (in a different docker)?
-//        postMessageToQueue("BatterySimulator initiated");
 
         return META;
     }
@@ -221,6 +143,10 @@ public class BatterySimulator extends Simulator {
 
         long minutes = time / 60;
 
+        String message;
+        String action;
+        String amount;
+
         // todo (medium): for loop below is not needed? extract gridPower value directly? -- rn it is needed bcs we have another attr (pvPower)
         for (Map.Entry<String, Object> entity : inputs.entrySet()) {
             Map<String, Object> attributes = (Map<String, Object>) entity.getValue();
@@ -231,10 +157,29 @@ public class BatterySimulator extends Simulator {
                     dischargeBattery(((Number) ((JSONObject) attr.getValue()).values().toArray()[0]).floatValue());
                 if (attr.getKey().equals("test"))
                     logger.info("received test value [" + ((Number) ((JSONObject) attr.getValue()).values().toArray()[0]).floatValue() + "]");
+                if (attr.getKey().equals("battery_action")) {
+                    logger.info("received battery_action message: " + attr.getValue());
+
+                    message = (String) ((JSONObject) attr.getValue()).values().toArray()[0];
+                    if (message == null)
+                        continue;
+                    action = message.split(":")[0];
+                    amount = message.split(":")[1];
+
+                    if ("charge".equals(action))
+                        chargeBattery(Float.parseFloat(amount));
+                    else if ("discharge".equals(action))
+                        dischargeBattery(Float.parseFloat(amount));
+                    else {
+                        logger.warning("Unknown action received [" + action + "]");
+                        throw new RuntimeException("Unknown action received [" + action + "]");
+                    }
+                }
             }
         }
 
         return (minutes + PROFILE_RESOLUTION) * 60;
+//        return null;
     }
 
 
@@ -267,12 +212,16 @@ public class BatterySimulator extends Simulator {
 
     private void chargeBattery(float chargeValue) {
         logger.info("+++ chargeValue = [" + chargeValue + "]");
+        if (chargeValue == 0)
+            return;
         battery.charge(abs(chargeValue));
         logger.info("battery currentLoad = " + battery.getCurrentLoad());
     }
 
     private void dischargeBattery(float dischargeValue) {
         logger.info("+++ dischargeValue = [" + dischargeValue + "]");
+        if (dischargeValue == 0)
+            return;
         battery.discharge(abs(dischargeValue));
         logger.info("battery currentLoad = " + battery.getCurrentLoad());
     }
