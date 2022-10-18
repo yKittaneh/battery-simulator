@@ -16,9 +16,6 @@ import static java.lang.Math.abs;
 
 public class BatterySimulator extends Simulator {
 
-    // todo: does the battery need to be a simulator plugged in to mosaik? yes
-    // todo: if yes, does the battery connect to the grid? Or to the edge node? Or to both? What kind of info does it exchange? --> ... it connects to a new control node
-
     private static final Logger logger = Logger.getLogger(BatterySimulator.class.getName());
 
     private static final JSONObject META = (JSONObject) JSONValue.parse(("{"
@@ -78,25 +75,6 @@ public class BatterySimulator extends Simulator {
         }
     }
 
-//    private static void handleMessage(String messageBody) {
-//        if (messageBody.startsWith("print"))
-//            logger.info("received command to print");
-//        else if (messageBody.startsWith("charge")) {
-//            battery.charge(extractValue(messageBody));
-//            logger.info("battery charge = " + battery.getCurrentLoad());
-//        } else if (messageBody.startsWith("discharge")) {
-//            battery.discharge(extractValue(messageBody));
-//            logger.info("battery charge = " + battery.getCurrentLoad());
-//        } else if (messageBody.startsWith("shutdown"))
-//            keepAlive = false;
-//        else
-//            logger.warning("Unknown command received = " + messageBody);
-//    }
-
-//    private static long extractValue(String messageBody) {
-//        return Long.parseLong(messageBody.split(":")[1]);
-//    }
-
     @Override
     public Map<String, Object> init(String sid, Float timeResolution, Map<String, Object> simParams) {
         logger.info("init called ");
@@ -151,10 +129,6 @@ public class BatterySimulator extends Simulator {
         for (Map.Entry<String, Object> entity : inputs.entrySet()) {
             Map<String, Object> attributes = (Map<String, Object>) entity.getValue();
             for (Map.Entry<String, Object> attr : attributes.entrySet()) {
-                if (attr.getKey().equals("charge"))
-                    chargeBattery(((Number) ((JSONObject) attr.getValue()).values().toArray()[0]).floatValue());
-                if (attr.getKey().equals("discharge"))
-                    dischargeBattery(((Number) ((JSONObject) attr.getValue()).values().toArray()[0]).floatValue());
                 if (attr.getKey().equals("test"))
                     logger.info("received test value [" + ((Number) ((JSONObject) attr.getValue()).values().toArray()[0]).floatValue() + "]");
                 if (attr.getKey().equals("battery_action")) {
@@ -170,6 +144,8 @@ public class BatterySimulator extends Simulator {
                         chargeBattery(Float.parseFloat(amount));
                     else if ("discharge".equals(action))
                         dischargeBattery(Float.parseFloat(amount));
+                    else if ("noAction".equals(action))
+                        logger.info("noAction command received!");
                     else {
                         logger.warning("Unknown action received [" + action + "]");
                         throw new RuntimeException("Unknown action received [" + action + "]");
@@ -179,7 +155,6 @@ public class BatterySimulator extends Simulator {
         }
 
         return (minutes + PROFILE_RESOLUTION) * 60;
-//        return null;
     }
 
 
