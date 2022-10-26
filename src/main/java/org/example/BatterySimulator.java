@@ -35,11 +35,11 @@ public class BatterySimulator extends Simulator {
 
     private static String GRID_NODE_ID;
 
-    private static Long PROFILE_RESOLUTION; //aka step size
+    private static long STEP_SIZE;
 
     private static Battery battery;
 
-    private static boolean keepAlive = true;
+    private static final boolean keepAlive = true;
 
     /*
     # defaults for lithium NMC cell, including DC-AC inverter loss
@@ -82,8 +82,8 @@ public class BatterySimulator extends Simulator {
         if (simParams.containsKey("eid"))
             ENTITY_ID = simParams.get("eid").toString();
 
-        if (simParams.containsKey("profile_resolution"))
-            PROFILE_RESOLUTION = (Long) simParams.get("profile_resolution");
+        if (simParams.containsKey("step_size"))
+            STEP_SIZE = (Long) simParams.get("step_size");
 
         return META;
     }
@@ -119,8 +119,6 @@ public class BatterySimulator extends Simulator {
     public long step(long time, Map<String, Object> inputs, long maxAdvance) {
         logger.info("step called ");
 
-        long minutes = time / 60;
-
         String message;
         String action;
         String amount;
@@ -154,7 +152,7 @@ public class BatterySimulator extends Simulator {
             }
         }
 
-        return (minutes + PROFILE_RESOLUTION) * 60;
+        return time + STEP_SIZE;
     }
 
 
