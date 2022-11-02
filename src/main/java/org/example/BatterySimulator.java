@@ -24,22 +24,17 @@ public class BatterySimulator extends Simulator {
             + "    'models': {"
             + "        'Battery': {"
             + "            'public': true,"
-            + "            'params': ['grid_node_id'],"
-            + "            'attrs': ['grid_node_id', 'current_load', 'grid_power', 'charge', 'discharge', 'test', 'battery_action']"
-            + "            'non-persistent': ['test']"
+            + "            'params': ['grid_node_id', 'max_capacity'],"
+            + "            'attrs': ['current_load', 'battery_action']"
             + "        }"
             + "    }"
             + "}").replace("'", "\""));
 
     private static String ENTITY_ID;
 
-    private static String GRID_NODE_ID;
-
     private static long STEP_SIZE;
 
     private static Battery battery;
-
-    private static final boolean keepAlive = true;
 
     /*
     # defaults for lithium NMC cell, including DC-AC inverter loss
@@ -97,11 +92,9 @@ public class BatterySimulator extends Simulator {
         if (!modelParams.containsKey("grid_node_id"))
             throw new RuntimeException("could not find param grid_node_id while creating battery entity");
 
-        GRID_NODE_ID = (String) modelParams.get("grid_node_id");
+        logger.info("connecting to grid node [gridNodeId = " + modelParams.get("grid_node_id") + "].");
 
-        logger.info("connecting to grid node [gridNodeId = " + GRID_NODE_ID + "].");
-
-        battery = new Battery(50000, 0);
+        createBattery(modelParams);
 
         JSONArray entities = new JSONArray();
 
@@ -109,7 +102,7 @@ public class BatterySimulator extends Simulator {
         entity.put("eid", ENTITY_ID);
         entity.put("type", model);
         entity.put("rel", new JSONArray());
-        entity.put("node_id", GRID_NODE_ID);
+        entity.put("node_id", modelParams.get("grid_node_id"));
 
         entities.add(entity);
         return entities;
@@ -119,68 +112,68 @@ public class BatterySimulator extends Simulator {
     public long step(long time, Map<String, Object> inputs, long maxAdvance) {
         logger.info("step called ");
 
-        String message;
-        String action;
-        String amount;
+        Map.Entry<String, Object> entity = (HashMap.Entry<String, Object>) inputs.entrySet().toArray()[0];
+        Map<String, Object> attributes = (Map<String, Object>) entity.getValue();
+        Map.Entry<String, Object> attr = (Map.Entry<String, Object>) attributes.entrySet().toArray()[0];
 
-        // todo (medium): for loop below is not needed? extract gridPower value directly? -- rn it is needed bcs we have another attr (pvPower)
-        for (Map.Entry<String, Object> entity : inputs.entrySet()) {
-            Map<String, Object> attributes = (Map<String, Object>) entity.getValue();
-            for (Map.Entry<String, Object> attr : attributes.entrySet()) {
-                if (attr.getKey().equals("test"))
-                    logger.info("received test value [" + ((Number) ((JSONObject) attr.getValue()).values().toArray()[0]).floatValue() + "]");
-                if (attr.getKey().equals("battery_action")) {
-                    logger.info("received battery_action message: " + attr.getValue());
+        if (!attr.getKey().equals("battery_action"))
+            throw new RuntimeException("did not find battery_action attribute in input map");
 
-                    message = (String) ((JSONObject) attr.getValue()).values().toArray()[0];
-                    if (message == null)
-                        continue;
-                    action = message.split(":")[0];
-                    amount = message.split(":")[1];
+        logger.info("received battery_action message: " + attr.getValue());
 
-                    if ("charge".equals(action))
-                        chargeBattery(Float.parseFloat(amount));
-                    else if ("discharge".equals(action))
-                        dischargeBattery(Float.parseFloat(amount));
-                    else if ("noAction".equals(action))
-                        logger.info("noAction command received!");
-                    else {
-                        logger.warning("Unknown action received [" + action + "]");
-                        throw new RuntimeException("Unknown action received [" + action + "]");
-                    }
-                }
-            }
-        }
+        String message = (String) ((JSONObject) attr.getValue()).values().toArray()[0];
+        handleBatteryAction(message);
 
         return time + STEP_SIZE;
     }
-
 
     @Override
     public Map<String, Object> getData(Map<String, List<String>> outputs) {
         logger.info("getData called ");
 
         Map<String, Object> data = new HashMap<>();
-        for (Map.Entry<String, List<String>> entity : outputs.entrySet()) {
-            String eid = entity.getKey();
-            List<String> attrs = entity.getValue();
-            HashMap<String, Object> values = new HashMap<>();
-            for (String attr : attrs) {
-                switch (attr) {
-                    case "grid_node_id":
-                        values.put(attr, GRID_NODE_ID);
-                        break;
-                    case "current_load":
-                        values.put(attr, battery.getCurrentLoad());
-                        break;
-                    default:
-                        logger.warning("unexpected attr requested [" + attr + "]");
-                        throw new RuntimeException("unexpected attr requested [" + attr + "]");
-                }
-            }
-            data.put(eid, values);
+
+        Map.Entry<String, List<String>> entity = (Map.Entry<String, List<String>>) outputs.entrySet().toArray()[0];
+        HashMap<String, Object> values = new HashMap<>();
+        String attr = entity.getValue().get(0);
+
+        if ("current_load".equals(attr)) {
+            values.put(attr, battery.getCurrentLoad());
+        } else {
+            logger.warning("unexpected attr requested [" + attr + "]");
+            throw new RuntimeException("unexpected attr requested [" + attr + "]");
         }
+        data.put(entity.getKey(), values);
+
         return data;
+    }
+
+    private static void createBattery(Map<String, Object> modelParams) {
+        if (!modelParams.containsKey("max_capacity")) {
+            logger.warning("max_capacity not provided, using default = " + 50000);
+            battery = new Battery(50000, 0);
+        } else {
+            logger.info("creating battery with max capacity = " + modelParams.get("max_capacity"));
+            battery = new Battery(objectToFloat(modelParams.get("max_capacity")), 0);
+        }
+    }
+
+    private void handleBatteryAction(String message) {
+        if (message != null) {
+            String action = message.split(":")[0];
+            String amount = message.split(":")[1];
+
+            if ("charge".equals(action))
+                chargeBattery(objectToFloat(amount));
+            else if ("discharge".equals(action))
+                dischargeBattery(objectToFloat(amount));
+            else if ("noAction".equals(action))
+                logger.info("noAction command received!");
+            else {
+                logger.warning("Unknown action received [" + action + "]");
+                throw new RuntimeException("Unknown action received [" + action + "]");
+            }
+        }
     }
 
     private void chargeBattery(float chargeValue) {
@@ -197,5 +190,19 @@ public class BatterySimulator extends Simulator {
             return;
         battery.discharge(abs(dischargeValue));
         logger.info("battery currentLoad = " + battery.getCurrentLoad());
+    }
+
+    public static Float objectToFloat(Object o) {
+        if (o == null) {
+            return null;
+        }
+        if (o instanceof Float) {
+            return (Float) o;
+        }
+        try {
+            return Float.valueOf(o.toString());
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 }
