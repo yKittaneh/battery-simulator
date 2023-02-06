@@ -32,6 +32,8 @@ public class BatterySimulator extends Simulator {
 
     private static String ENTITY_ID;
 
+    private static Float TIME_RESOLUTION;
+
     private static long STEP_SIZE;
 
     private static Battery battery;
@@ -74,8 +76,10 @@ public class BatterySimulator extends Simulator {
     public Map<String, Object> init(String sid, Float timeResolution, Map<String, Object> simParams) {
         logger.info("init called ");
 
-        if (simParams.containsKey("eid"))
-            ENTITY_ID = simParams.get("eid").toString();
+        ENTITY_ID = "battery";
+
+        if (timeResolution != null)
+            TIME_RESOLUTION = timeResolution;
 
         if (simParams.containsKey("step_size"))
             STEP_SIZE = (Long) simParams.get("step_size");
@@ -89,11 +93,6 @@ public class BatterySimulator extends Simulator {
         if (num != 1)
             throw new RuntimeException("Value of param 'num' in create method = [" + num + "], expected 1. System design only allows for one entity per simulation.");
 
-        if (!modelParams.containsKey("grid_node_id"))
-            throw new RuntimeException("could not find param grid_node_id while creating battery entity");
-
-        logger.info("connecting to grid node [gridNodeId = " + modelParams.get("grid_node_id") + "].");
-
         createBattery(modelParams);
 
         JSONArray entities = new JSONArray();
@@ -102,7 +101,6 @@ public class BatterySimulator extends Simulator {
         entity.put("eid", ENTITY_ID);
         entity.put("type", model);
         entity.put("rel", new JSONArray());
-        entity.put("node_id", modelParams.get("grid_node_id"));
 
         entities.add(entity);
         return entities;
